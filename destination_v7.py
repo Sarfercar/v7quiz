@@ -24,6 +24,8 @@ st.markdown(f"""
         .destination-header {{ font-size: 1.6rem; color: {COLOR_BROWN}; font-weight: bold; margin-bottom: 0.2rem; }}
         .badge {{ background-color: {COLOR_BROWN}; color: white; padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; margin-right: 0.3rem; display: inline-block; }}
         .notice {{ background-color: #fcf8e3; border-left: 4px solid #f0ad4e; color: #8a6d3b; padding: 0.8rem; font-size: 0.85rem; margin-top: 1.5rem; border-radius: 4px; }}
+        .cta-link {{ text-decoration: none; color: white !important; transition: opacity 0.2s; }}
+        .cta-link:hover {{ opacity: 0.9; text-decoration: underline; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -45,31 +47,39 @@ def load_data():
 
 df = load_data()
 
-# Image fetcher from Wikimedia Commons API
+# Upgraded robust Image fetcher from Wikipedia API with multiple fallback queries
 @st.cache_data(show_spinner=False)
 def fetch_wikimedia_image(destination, country):
-    query = f"{destination} {country}"
-    url = "https://en.wikipedia.org/w/api.php"
-    params = {
-        "action": "query",
-        "format": "json",
-        "prop": "pageimages|images",
-        "generator": "search",
-        "gsrsearch": query,
-        "gsrlimit": 1,
-        "piprop": "thumbnail",
-        "pithumbsize": 400,
-        "utf8": 1
-    }
-    try:
-        res = requests.get(url, params=params, timeout=4.0).json()
-        pages = res.get("query", {}).get("pages", {})
-        for pid, page in pages.items():
-            thumb = page.get("thumbnail", {})
-            if thumb.get("source"):
-                return thumb["source"], "Wikimedia Commons"
-    except:
-        pass
+    # Clean destination query names (e.g. "Paris (Orly)" -> "Paris")
+    clean_dest = destination.split("(")[0].strip()
+    queries = [
+        f"{clean_dest}, {country}",
+        clean_dest,
+        f"{clean_dest} city"
+    ]
+
+    for query in queries:
+        url = "https://en.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "format": "json",
+            "prop": "pageimages",
+            "generator": "search",
+            "gsrsearch": query,
+            "gsrlimit": 1,
+            "piprop": "thumbnail",
+            "pithumbsize": 600,
+            "utf8": 1
+        }
+        try:
+            res = requests.get(url, params=params, timeout=5.0).json()
+            pages = res.get("query", {}).get("pages", {})
+            for pid, page in pages.items():
+                thumb = page.get("thumbnail", {})
+                if thumb.get("source"):
+                    return thumb["source"], "Wikimedia Commons"
+        except:
+            pass
     return None, None
 
 # Main Interface
@@ -103,7 +113,8 @@ with st.form("quiz_form"):
 if submit:
     if not moods:
         st.warning("Please select at least one trip category to begin!")
-    else: 
+    else:
+        # Matching scoring engine
         results = []
         mapped_len = "2-3 days" if "2–3" in length else ("4-5 days" if "4-5" in length else "a week or more")
 
@@ -135,10 +146,10 @@ if submit:
                 score += 1
                 matches_reasons.append(f"aligns with your choice of {budget} budget category")
 
-            if score >= 4: # Filtering threshold
+            if score >= 4:
                 results.append((score, row, matches_reasons))
 
-        # Sort deterministically by score descending, then by destination name
+        # Sort deterministically
         results.sort(key=lambda x: (-x[0], x[1]['destination_en']))
         top_matches = results[:3]
 
@@ -180,13 +191,14 @@ if submit:
                 st.button("Check flights", key=f"chk_{iata}", help=f"Flight connection details: Volotea services {iata}. Please select your custom departure airport from the homepage to check timetables.")
                 st.divider()
 
-            # Prominent Brand CTA block
+            # Clean Brand CTA block with integrated click-through title link
             st.markdown(f"""
             <div style='background-color:{COLOR_RED}; color:white; padding:2rem; text-align:center; border-radius:8px; margin-top:2rem;'>
-                <h2 style='color:white; margin-bottom:1rem;'>Discover these destinations and more with Volotea</h2>
+                <h2 style='margin:0;'>
+                    <a class='cta-link' href='https://volotea.com/' target='_blank'>Discover these destinations and more with Volotea</a>
+                </h2>
             </div>
             """, unsafe_allow_html=True)
-            st.link_button("Explore Volotea", "https://www.volotea.com/", use_container_width=True)
 
 # Footer Notice
 st.markdown("""
