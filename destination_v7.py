@@ -48,19 +48,26 @@ def load_data():
 
 df = load_data()
 
-# Upgraded Unicode-safe Image fetcher
+# Upgraded Unicode-safe Image fetcher with multi-stage original-vs-clean fallback
 @st.cache_data(show_spinner=False)
 def fetch_wikimedia_image(destination, country):
+    # Keep original format
+    orig_dest = destination.split("(")[0].strip()
+    orig_country = country.strip()
+
     # Standardize string format and remove special non-ASCII accents (e.g. "A Coruña" -> "A Coruna")
     def clean_unicode(text):
         return "".join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
-    clean_dest = clean_unicode(destination.split("(")[0].strip())
-    clean_country = clean_unicode(country)
+    clean_dest = clean_unicode(orig_dest)
+    clean_country = clean_unicode(orig_country)
 
+    # Multi-stage fallback search query list
     queries = [
+        f"{orig_dest}, {orig_country}",
+        f"{orig_dest}",
         f"{clean_dest}, {clean_country}",
-        clean_dest,
+        f"{clean_dest}",
         f"{clean_dest} town"
     ]
 
@@ -183,7 +190,7 @@ if submit:
                 if img_url:
                     st.image(img_url, caption=f"Image Credit: {attribution if attribution else 'Public Domain'}", use_container_width=True)
                 else:
-                    st.info(f"🖼️ Scenic preview of {dest_name} (Image loader currently offline)")
+                    st.info(f"📤 Scenic preview of {dest_name} (Image loader currently offline)")
 
                 st.markdown(f"**Why you'll love it:**\n{desc}")
 
