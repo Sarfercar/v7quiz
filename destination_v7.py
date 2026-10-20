@@ -1,221 +1,417 @@
-import streamlit as st
+import html
+import unicodedata
+
 import pandas as pd
 import requests
-import urllib.parse
-import unicodedata
+import streamlit as st
+
 
 st.set_page_config(
     page_title="Volotea Destination Finder",
     page_icon="✈️",
-    layout="centered"
+    layout="centered",
 )
 
-# Volotea Palette
+# Volotea palette
 COLOR_RED = "#E10E49"
 COLOR_BROWN = "#452325"
 
-# Apply CSS for Custom Font/Coloring to closely follow Volotea identity guidelines
-st.markdown(f"""
+st.markdown(
+    f"""
     <style>
-        html, body, [class*="css"] {{ font-family: 'Helvetica Neue', Arial, sans-serif; }}
-        h1, h2, h3, h4 {{ color: {COLOR_BROWN}; font-weight: 800; }}
-        .stButton>button {{ background-color: {COLOR_RED} !important; color: white !important; border: none !important; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bold; }}
-        .stButton>button:hover {{ background-color: #b50b3a !important; }}
-        .recommendation-card {{ border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-        .destination-header {{ font-size: 1.6rem; color: {COLOR_BROWN}; font-weight: bold; margin-bottom: 0.2rem; }}
-        .badge {{ background-color: {COLOR_BROWN}; color: white; padding: 0.2rem 0.6rem; font-size: 0.75rem; border-radius: 12px; margin-right: 0.3rem; display: inline-block; }}
-        .notice {{ background-color: #fcf8e3; border-left: 4px solid #f0ad4e; color: #8a6d3b; padding: 0.8rem; font-size: 0.85rem; margin-top: 1.5rem; border-radius: 4px; }}
-        .cta-link {{ text-decoration: none; color: white !important; transition: opacity 0.2s; }}
-        .cta-link:hover {{ opacity: 0.9; text-decoration: underline; }}
+        html, body, [class*="css"] {{
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }}
+        h1, h2, h3, h4 {{
+            color: {COLOR_BROWN};
+            font-weight: 800;
+        }}
+        .stButton > button {{
+            background-color: {COLOR_RED} !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            font-weight: bold;
+        }}
+        .stButton > button:hover {{
+            background-color: #b50b3a !important;
+        }}
+        .recommendation-card {{
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }}
+        .destination-header {{
+            font-size: 1.6rem;
+            color: {COLOR_BROWN};
+            font-weight: bold;
+        }}
+        .badge {{
+            background-color: {COLOR_BROWN};
+            color: white;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.75rem;
+            border-radius: 12px;
+            margin-left: 0.3rem;
+            display: inline-block;
+        }}
+        .notice {{
+            background-color: #fcf8e3;
+            border-left: 4px solid #f0ad4e;
+            color: #8a6d3b;
+            padding: 0.8rem;
+            font-size: 0.85rem;
+            margin-top: 1.5rem;
+            border-radius: 4px;
+        }}
+        .cta-link {{
+            text-decoration: none;
+            color: white !important;
+            transition: opacity 0.2s;
+        }}
+        .cta-link:hover {{
+            opacity: 0.9;
+            text-decoration: underline;
+        }}
     </style>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
-# Logo Header helper
-logo_url = "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/98/Volotea.svg/960px-Volotea.svg.png"
+
+# Header logo
+logo_url = (
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/"
+    "Volotea.svg/960px-Volotea.svg.png"
+)
+
 try:
     st.image(logo_url, width=180)
-except:
+except Exception:
     st.subheader("Volotea")
 
-# Load CSV safely with fallback handler
+
+# Load the destination catalogue
 @st.cache_data
 def load_data():
     try:
         return pd.read_csv("destinations.csv", sep=";")
-    except Exception as e:
-        st.error(f"Error loading catalogue data: {e}")
+    except Exception as error:
+        st.error(f"Error loading catalogue data: {error}")
         return pd.DataFrame()
+
 
 df = load_data()
 
-# Upgraded Unicode-safe Image fetcher with multi-stage original-vs-clean fallback
+
+def remove_accents(text):
+    """Remove accents to provide a fallback search query."""
+    normalized = unicodedata.normalize("NFD", str(text))
+    return "".join(
+        character
+        for character in normalized
+        if unicodedata.category(character) != "Mn"
+    )
+
+
+# Find destination images using Wikipedia's API
 @st.cache_data(show_spinner=False)
 def fetch_wikimedia_image(destination, country):
-    # Keep original format
-    orig_dest = destination.split("(")[0].strip()
-    orig_country = country.strip()
+    destination = str(destination).split("(")[0].strip()
+    country = str(country).strip()
 
-    # Standardize string format and remove special non-ASCII accents (e.g. "A Coruña" -> "A Coruna")
-    def clean_unicode(text):
-        return "".join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+    clean_destination = remove_accents(destination)
+    clean_country = remove_accents(country)
 
-    clean_dest = clean_unicode(orig_dest)
-    clean_country = clean_unicode(orig_country)
-
-    # Multi-stage fallback search query list
     queries = [
-        f"{orig_dest}, {orig_country}",
-        f"{orig_dest}",
-        f"{clean_dest}, {clean_country}",
-        f"{clean_dest}",
-        f"{clean_dest} town"
+        f"{destination}, {country}",
+        destination,
+        f"{clean_destination}, {clean_country}",
+        clean_destination,
+        f"{clean_destination} town",
     ]
 
+    api_url = "https://en.wikipedia.org/w/api.php"
+    headers = {
+        "User-Agent": "VoloteaDestinationFinder/1.0 (https://www.volotea.com/)"
+    }
+
     for query in queries:
-        url = "https://en.wikipedia.org/w/api.php"
         params = {
             "action": "query",
             "format": "json",
-            "prop": "pageimages",
+            "formatversion": 2,
             "generator": "search",
             "gsrsearch": query,
-            "gsrlimit": 1,
+            "gsrnamespace": 0,
+            "gsrlimit": 5,
+            "prop": "pageimages",
             "piprop": "thumbnail",
             "pithumbsize": 600,
-            "utf8": 1
         }
+
         try:
-            res = requests.get(url, params=params, timeout=5.0).json()
-            pages = res.get("query", {}).get("pages", {})
-            for pid, page in pages.items():
-                thumb = page.get("thumbnail", {})
-                if thumb.get("source"):
-                    return thumb["source"], "Wikimedia Commons"
-        except:
-            pass
+            response = requests.get(
+                api_url,
+                params=params,
+                headers=headers,
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            pages = response.json().get("query", {}).get("pages", [])
+
+            for page in pages:
+                image_url = page.get("thumbnail", {}).get("source")
+                if image_url:
+                    return image_url, "Wikipedia"
+
+        except (requests.RequestException, ValueError):
+            # Try the next search query if this request fails.
+            continue
+
     return None, None
 
-# Main Interface
+
+# Main interface
 st.title("Inspirational Travel Quiz")
-st.write("Not sure where to go next? Tell us what you love and discover destinations that match your travel style and budget.")
+st.write(
+    "Not sure where to go next? Tell us what you love and discover "
+    "destinations that match your travel style and budget."
+)
 
 with st.form("quiz_form"):
     moods = st.multiselect(
         "What kind of trip are you in the mood for?",
-        options=["beach", "nature and mountains", "city break", "culture", "food", "islands", "relaxation"],
-        default=["culture"]
+        options=[
+            "beach",
+            "nature and mountains",
+            "city break",
+            "culture",
+            "food",
+            "islands",
+            "relaxation",
+        ],
+        default=["culture"],
     )
 
     length = st.selectbox(
         "How much time do you have?",
-        options=["2–3 days", "4–5 days", "a week or more"]
+        options=["2–3 days", "4–5 days", "a week or more"],
     )
 
     season = st.selectbox(
         "When would you like to travel?",
-        options=["spring", "summer", "autumn", "winter", "any time"]
+        options=["spring", "summer", "autumn", "winter", "any time"],
     )
 
     budget = st.selectbox(
         "What's your approximate budget?",
-        options=["low", "medium", "high"]
+        options=["low", "medium", "high"],
     )
 
     submit = st.form_submit_button("Find my destinations")
 
+
 if submit:
-    if not moods:
+    if df.empty:
+        st.error("The destination catalogue is empty or could not be loaded.")
+    elif not moods:
         st.warning("Please select at least one trip category to begin!")
     else:
-        # Matching scoring engine
         results = []
-        mapped_len = "2-3 days" if "2–3" in length else ("4-5 days" if "4-5" in length else "a week or more")
+
+        if length == "2–3 days":
+            mapped_length = "2-3 days"
+        elif length == "4–5 days":
+            mapped_length = "4-5 days"
+        else:
+            mapped_length = "a week or more"
 
         for _, row in df.iterrows():
             score = 0
-            matches_reasons = []
+            reasons = []
 
-            # Compare Mood/Interests
-            dest_interests = str(row['interests']).split('|')
-            matched_moods = list(set(moods).intersection(dest_interests))
+            # Match interests
+            destination_interests = [
+                interest.strip()
+                for interest in str(row.get("interests", "")).split("|")
+                if interest.strip()
+            ]
+            matched_moods = [
+                mood for mood in moods if mood in destination_interests
+            ]
+
             if matched_moods:
                 score += len(matched_moods) * 3
-                matches_reasons.append(f"matches your interest in {', '.join(matched_moods)}")
+                reasons.append(
+                    f"matches your interest in {', '.join(matched_moods)}"
+                )
 
-            # Match Length
-            dest_lengths = str(row['trip_length']).split('|')
-            if mapped_len in dest_lengths:
+            # Match trip length
+            destination_lengths = [
+                item.strip()
+                for item in str(row.get("trip_length", "")).split("|")
+            ]
+            if mapped_length in destination_lengths:
                 score += 2
-                matches_reasons.append(f"ideal for a {length} trip")
+                reasons.append(f"ideal for a {length} trip")
 
-            # Match Season
-            dest_seasons = str(row['seasons']).split('|')
-            if season.lower() == "any time" or season.lower() in dest_seasons:
+            # Match season
+            destination_seasons = [
+                item.strip().lower()
+                for item in str(row.get("seasons", "")).split("|")
+            ]
+
+            if season.lower() == "any time":
                 score += 2
-                matches_reasons.append(f"perfectly fits {season} travel season" if season.lower() != "any time" else "great for flexible any-time travel")
+                reasons.append("great for flexible, any-time travel")
+            elif season.lower() in destination_seasons:
+                score += 2
+                reasons.append(f"fits the {season} travel season")
 
-            # Match budget tier
-            if row['budget_tier'] == budget.lower():
+            # Match budget
+            destination_budget = str(
+                row.get("budget_tier", "")
+            ).strip().lower()
+
+            if destination_budget == budget.lower():
                 score += 1
-                matches_reasons.append(f"aligns with your choice of {budget} budget category")
+                reasons.append(f"aligns with your {budget} budget choice")
 
             if score >= 4:
-                results.append((score, row, matches_reasons))
+                results.append((score, row, reasons))
 
-        # Sort deterministically
-        results.sort(key=lambda x: (-x[0], x[1]['destination_en']))
+        results.sort(
+            key=lambda result: (
+                -result[0],
+                str(result[1].get("destination_en", "")),
+            )
+        )
         top_matches = results[:3]
 
         if not top_matches:
-            st.info("No perfect match was found matching all specific parameters. Try adjusting your mood or selecting 'any time' for the season to find more matches!")
+            st.info(
+                "No close matches were found. Try changing your trip "
+                "preferences or selecting 'any time' for the season."
+            )
         else:
             st.subheader("Your Curated Travel Recommendations")
+
             for score, row, reasons in top_matches:
-                dest_name = row['destination_en']
-                country = row['country_en']
-                region = row['region_en']
-                iata = row['iata']
-                desc = row['description']
+                destination = str(row.get("destination_en", ""))
+                country = str(row.get("country_en", ""))
+                region = row.get("region_en", "")
+                iata = str(row.get("iata", ""))
+                description = str(row.get("description", ""))
 
-                region_str = f" ({region})" if pd.notna(region) and region else ""
+                region_text = ""
+                if pd.notna(region) and str(region).strip():
+                    region_text = f" ({html.escape(str(region).strip())})"
 
-                st.markdown(f"""
-                <div class='recommendation-card'>
-                    <div class='destination-header'>{dest_name}, {country}{region_str} <span class='badge'>{iata}</span></div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Escape CSV values inserted into custom HTML.
+                safe_destination = html.escape(destination)
+                safe_country = html.escape(country)
+                safe_iata = html.escape(iata)
 
-                # Handle Photos gracefully
-                img_url, attribution = fetch_wikimedia_image(dest_name, country)
-                if img_url:
-                    st.image(img_url, caption=f"Image Credit: {attribution if attribution else 'Public Domain'}", use_container_width=True)
+                st.markdown(
+                    f"""
+                    <div class="recommendation-card">
+                        <div class="destination-header">
+                            {safe_destination}, {safe_country}{region_text}
+                            <span class="badge">{safe_iata}</span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                image_url, attribution = fetch_wikimedia_image(
+                    destination,
+                    country,
+                )
+
+                if image_url:
+                    try:
+                        st.image(
+                            image_url,
+                            caption=f"Image source: {attribution}",
+                            use_container_width=True,
+                        )
+                    except Exception:
+                        st.info(
+                            f"No image could be displayed for {destination}."
+                        )
                 else:
-                    st.info(f"📤 Scenic preview of {dest_name} (Image loader currently offline)")
+                    st.info(
+                        f"No image is currently available for {destination}."
+                    )
 
-                st.markdown(f"**Why you'll love it:**\n{desc}")
+                st.markdown(f"**Why you'll love it:**\n\n{description}")
 
-                reasons_bullet_points = "\n".join([f"* It {reason}." for reason in reasons])
-                st.markdown(f"**Why it matches your answers:**\n{reasons_bullet_points}")
+                reason_bullets = "\n".join(
+                    f"- It {reason}." for reason in reasons
+                )
+                st.markdown(
+                    f"**Why it matches your answers:**\n\n{reason_bullets}"
+                )
 
-                # Tag display
-                st.write("Tags: " + " ".join([f"`{t}`" for t in str(row['interests']).split('|')]))
+                tags = [
+                    tag.strip()
+                    for tag in str(row.get("interests", "")).split("|")
+                    if tag.strip()
+                ]
+                if tags:
+                    st.write("Tags: " + " ".join(f"`{tag}`" for tag in tags))
 
-                # Check flights logic
-                st.button("Check flights", key=f"chk_{iata}", help=f"Flight connection details: Volotea services {iata}. Please select your custom departure airport from the homepage to check timetables.")
+                st.button(
+                    "Check flights",
+                    key=f"check_flights_{iata}",
+                    help=(
+                        f"Volotea services {iata}. Select your departure "
+                        "airport on the Volotea website to check schedules."
+                    ),
+                )
+
                 st.divider()
 
-            # Clean Brand CTA block with integrated click-through title link
-            st.markdown(f"""
-            <div style='background-color:{COLOR_RED}; color:white; padding:2rem; text-align:center; border-radius:8px; margin-top:2rem;'>
-                <h2 style='margin:0;'>
-                    <a class='cta-link' href='https://volotea.com/' target='_blank'>Find your next getaway with Volotea</a>
-                </h2>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div style="
+                    background-color: {COLOR_RED};
+                    color: white;
+                    padding: 2rem;
+                    text-align: center;
+                    border-radius: 8px;
+                    margin-top: 2rem;
+                ">
+                    <h2 style="margin: 0;">
+                        <a
+                            class="cta-link"
+                            href="https://www.volotea.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Discover these destinations and more with Volotea
+                        </a>
+                    </h2>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-# Footer Notice
-st.markdown("""
-<div class='notice'>
-    ⚠️ Inspiration prototype. Recommendations do not guarantee flight availability or prices.
-</div>
-""", unsafe_allow_html=True)
+
+# Footer
+st.markdown(
+    """
+    <div class="notice">
+        ⚠️ Inspiration prototype. Recommendations do not guarantee flight
+        availability or prices.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
