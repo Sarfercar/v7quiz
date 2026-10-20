@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import urllib.parse
+import unicodedata
 
 st.set_page_config(
     page_title="Volotea Destination Finder",
@@ -47,15 +48,20 @@ def load_data():
 
 df = load_data()
 
-# Upgraded robust Image fetcher from Wikipedia API with multiple fallback queries
+# Upgraded Unicode-safe Image fetcher
 @st.cache_data(show_spinner=False)
 def fetch_wikimedia_image(destination, country):
-    # Clean destination query names (e.g. "Paris (Orly)" -> "Paris")
-    clean_dest = destination.split("(")[0].strip()
+    # Standardize string format and remove special non-ASCII accents (e.g. "A Coruña" -> "A Coruna")
+    def clean_unicode(text):
+        return "".join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
+    clean_dest = clean_unicode(destination.split("(")[0].strip())
+    clean_country = clean_unicode(country)
+
     queries = [
-        f"{clean_dest}, {country}",
+        f"{clean_dest}, {clean_country}",
         clean_dest,
-        f"{clean_dest} city"
+        f"{clean_dest} town"
     ]
 
     for query in queries:
@@ -84,7 +90,7 @@ def fetch_wikimedia_image(destination, country):
 
 # Main Interface
 st.title("Inspirational Travel Quiz")
-st.write("Discover your next getaway in seconds! Choose your preferences and match with Volotea's beautiful destinations.")
+st.write("Not sure where to go next? Tell us what you love and discover destinations that match your travel style and budget.")
 
 with st.form("quiz_form"):
     moods = st.multiselect(
@@ -195,7 +201,7 @@ if submit:
             st.markdown(f"""
             <div style='background-color:{COLOR_RED}; color:white; padding:2rem; text-align:center; border-radius:8px; margin-top:2rem;'>
                 <h2 style='margin:0;'>
-                    <a class='cta-link' href='https://volotea.com/' target='_blank'>Discover these destinations and more with Volotea</a>
+                    <a class='cta-link' href='https://volotea.com/' target='_blank'>Find your next getaway with Volotea</a>
                 </h2>
             </div>
             """, unsafe_allow_html=True)
