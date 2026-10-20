@@ -20,7 +20,7 @@ A functional Streamlit travel companion prototype inspired by Volotea's visual i
 5. **Interface Language:** All user-facing components must remain strictly in concise, natural, and engaging English.
 
 ## How to verify it works
-- Run `streamlit run app.py` locally or inside Google Colab using a LocalTunnel connection.
+- Run `streamlit run destination_v7.py` locally or inside Google Colab using a LocalTunnel connection.
 - **Test Cases:**
   - Select `beach`, `islands`, `summer`, and `high` budget -> App returns up to three iconic holiday spots (e.g., Mykonos, Ibiza) with corresponding pictures and valid matches.
   - Set contradictory filters where no matches score >= 4 -> The app displays a friendly notice inviting the user to adjust their choices instead of loading weak suggestions.
