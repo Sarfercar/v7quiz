@@ -1,5 +1,6 @@
 import html
 import unicodedata
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -106,18 +107,24 @@ except Exception:
     st.subheader("Volotea")
 
 
-# Load the destination catalogue. The CSV provides destination-specific copy
-# in `description` and island labels in `region_en`.
+# Load the destination catalogue from the same folder as this script.
+# Passing the file's modification time into the cache key makes Streamlit
+# reload the CSV when a newer version is deployed.
+CSV_PATH = Path(__file__).resolve().parent / "destinations.csv"
+
+
 @st.cache_data
-def load_data():
-    try:
-        return pd.read_csv("destinations.csv", sep=";")
-    except Exception as error:
-        st.error(f"Error loading catalogue data: {error}")
-        return pd.DataFrame()
+def load_data(csv_path, modified_at):
+    return pd.read_csv(csv_path, sep=";")
 
 
-df = load_data()
+try:
+    if not CSV_PATH.exists():
+        raise FileNotFoundError(f"Could not find {CSV_PATH.name} next to this script.")
+    df = load_data(str(CSV_PATH), CSV_PATH.stat().st_mtime)
+except Exception as error:
+    st.error(f"Error loading catalogue data: {error}")
+    df = pd.DataFrame()
 
 
 def remove_accents(text):
