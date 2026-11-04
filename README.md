@@ -1,6 +1,6 @@
 # Volotea Destination Finder
 
-**Enlace a la app:** [[https://...streamlit.app  ](https://v7quiz.streamlit.app/)](https://v7quiz.streamlit.app/)
+**Enlace a la app:** [https://v7quiz.streamlit.app/](https://v7quiz.streamlit.app/)  
 **Autor/a:** Sara Fernández Carmona
 
 ## Pitch
