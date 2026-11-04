@@ -26,7 +26,7 @@ Los viajeros que buscan inspiración para una escapada se enfrentan a portales m
 ## Cómo la he construido
 
 - **Herramientas:** Cursor, Google Colab y VS Code.
-- **Fichero de contexto del agente:** [AGENTS.md](https://github.com/Sarfercar/v7quiz/blob/main/AGENTS.md)
+- **Fichero de contexto del agente:** [AGENTS.md]([https://github.com/Sarfercar/v7quiz/blob/main/AGENTS.md](https://github.com/Sarfercar/v7quiz/blob/main/agents.md))
 - - **Prompts clave:**
   1. *Prompt de estructura inicial:* "Crea una aplicación en Streamlit basada en el catálogo de Volotea que actúe como un quiz de inspiración de viajes sin pedir aeropuertos de origen."
   2. *Prompt de diseño de marca:* "Aplica una hoja de estilos CSS personalizada utilizando estrictamente la paleta de colores corporativa de Volotea: rojo principal (#E10E49) y marrón corporativo (#452325) para títulos."
