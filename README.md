@@ -40,13 +40,6 @@ Los viajeros que buscan inspiración para una escapada se enfrentan a portales m
 | Yo como usuaria | Pruebas de selección con filtros muy restrictivos (ej. presupuesto bajo y temporada de invierno en destinos de playa) | El sistema de puntuación no encontraba elementos con score $\ge 4$, mostrando un aviso en blanco o bloqueando la sección de resultados. | Añadí una validación explícita para mostrar un mensaje claro e instructivo invitando al usuario a relajar sus filtros en lugar de renderizar tarjetas vacías. |
 | Yo como usuaria | Peticiones a Wikimedia con nombres de ciudades con caracteres especiales o tildes (ej. A Coruña) | La API devolvía listas vacías porque no reconocía los caracteres acentuados en las consultas de búsqueda (`gsrsearch`). | Implementé una función de normalización con `unicodedata` para eliminar acentos de forma segura antes de lanzar las queries de imagen. |
 
-## Ejecutar en local (opcional)
-
-```bash
-pip install -r requirements.txt
-streamlit run destination_v7.py
-
-
 ## Capturas
 
 1. **Interfaz principal (Quiz de inspiración):** Formulario de preferencias interactivo adaptado con la identidad visual y la paleta corporativa de Volotea.
