@@ -45,3 +45,14 @@ Los viajeros que buscan inspiración para una escapada se enfrentan a portales m
 ```bash
 pip install -r requirements.txt
 streamlit run destination_v7.py
+
+
+## Capturas
+
+1. **Interfaz principal (Quiz de inspiración):** Formulario de preferencias interactivo adaptado con la identidad visual y la paleta corporativa de Volotea.
+   <br>
+   <img width="650" alt="Quiz de inspiración Volotea" src="https://github.com/user-attachments/assets/ad066284-35b6-4ab3-9691-d1372475853f" />
+
+2. **Tarjetas de recomendación:** Resultados estructurados que muestran el destino con su código IATA, imagen dinámica de Wikimedia Commons, descripciones editoriales y razones de coincidencia.
+   <br>
+   <img width="650" alt="Tarjetas de recomendación de destinos" src="https://github.com/user-attachments/assets/2d24488a-bc74-4728-9449-7172b664a9f6" />
